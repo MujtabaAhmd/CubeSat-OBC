@@ -1,0 +1,10 @@
+../Core/Inc/comms_driver.c:12:20:_cs_low	8	static
+../Core/Inc/comms_driver.c:16:20:_cs_high	8	static
+../Core/Inc/comms_driver.c:22:26:_spi_cmd	40	static
+../Core/Inc/comms_driver.c:35:16:COMMS_Init	24	static
+../Core/Inc/comms_driver.c:52:16:COMMS_GetStatus	24	static
+../Core/Inc/comms_driver.c:75:16:COMMS_SendDownlink	32	static
+../Core/Inc/comms_driver.c:94:16:COMMS_ReceiveUplink	32	static
+../Core/Src/main.c:66:5:main	8	static
+../Core/Src/main.c:113:6:SystemClock_Config	88	static
+../Core/Src/main.c:163:6:Error_Handler	4	static,ignoring_inline_asm

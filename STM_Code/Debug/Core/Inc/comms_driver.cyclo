@@ -1,0 +1,7 @@
+../Core/Inc/comms_driver.c:12:20:_cs_low	1
+../Core/Inc/comms_driver.c:16:20:_cs_high	1
+../Core/Inc/comms_driver.c:22:26:_spi_cmd	1
+../Core/Inc/comms_driver.c:35:16:COMMS_Init	1
+../Core/Inc/comms_driver.c:52:16:COMMS_GetStatus	1
+../Core/Inc/comms_driver.c:75:16:COMMS_SendDownlink	2
+../Core/Inc/comms_driver.c:94:16:COMMS_ReceiveUplink	4
