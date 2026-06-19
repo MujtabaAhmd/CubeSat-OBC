@@ -1,4 +1,4 @@
-"./Core/Inc/comms_driver.o"
+"./Core/Src/comms_driver.o"
 "./Core/Src/gpio.o"
 "./Core/Src/main.o"
 "./Core/Src/spi.o"

@@ -37,13 +37,12 @@ COMMS_Status_t COMMS_Init(SPI_HandleTypeDef *hspi)
     (void)hspi;
     _cs_high();  /* Deassert CS at startup */
 
-    /*
-     * Send reset command and wait for controller to boot.
-     * Exact boot sequence depends on your comms controller.
-     * This is a placeholder.
-     */
-    uint8_t resp;
-    _spi_cmd(hspi, COMMS_CMD_RESET, &resp);
+    char message[] = "Test";
+
+        /* * Use the downlink function to send multi-byte payloads.
+         * We cast the char array to uint8_t* and pass the string length.
+         */
+    COMMS_SendDownlink(hspi, (uint8_t *)message, strlen(message));
     HAL_Delay(100);
 
     return COMMS_OK;

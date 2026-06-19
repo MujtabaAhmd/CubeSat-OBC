@@ -158,7 +158,7 @@ void loop() {
 
       Serial.print("RX data: ");
       for (size_t i = 0; i < bytesReceived && i < BUFFER_SIZE; i++) {
-        Serial.printf("%02X ", rxBuffer[i]);
+        Serial.print((char)rxBuffer[i]);
       }
       Serial.println();
     } else {

@@ -12,7 +12,6 @@ RM := rm -rf
 -include Drivers/STM32F4xx_HAL_Driver/Src/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
--include Core/Inc/subdir.mk
 -include objects.mk
 
 ifneq ($(MAKECMDGOALS),clean)
@@ -61,8 +60,8 @@ all: main-build
 main-build: Comms_Test.elf secondary-outputs
 
 # Tool invocations
-Comms_Test.elf Comms_Test.map: $(OBJS) $(USER_OBJS) C:\Users\Mujtaba_A\Desktop\Comms_Test\STM_Code\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Comms_Test.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Mujtaba_A\Desktop\Comms_Test\STM_Code\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Comms_Test.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Comms_Test.elf Comms_Test.map: $(OBJS) $(USER_OBJS) C:\1_Mujtaba\3_Technology\Cube\ Sat\OBC\Testing\Comms_Test\STM_Code\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Comms_Test.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\1_Mujtaba\3_Technology\Cube Sat\OBC\Testing\Comms_Test\STM_Code\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Comms_Test.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

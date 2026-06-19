@@ -1,4 +1,4 @@
-Core/Inc/comms_driver.o: ../Core/Inc/comms_driver.c \
+Core/Src/comms_driver.o: ../Core/Src/comms_driver.c \
  ../Core/Inc/comms_driver.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h \
  ../Core/Inc/stm32f4xx_hal_conf.h \

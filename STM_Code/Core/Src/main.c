@@ -20,7 +20,7 @@
 #include "main.h"
 #include "spi.h"
 #include "gpio.h"
-#include "comms_driver.c"
+#include "comms_driver.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -99,7 +99,10 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
 	  COMMS_Init(&hspi1);
+	  HAL_Delay(1000);
+	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
 	  HAL_Delay(5000);
     /* USER CODE BEGIN 3 */
   }
