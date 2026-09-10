@@ -1,8 +1,5 @@
 # CubeSat OBC Firmware -- High-Level Architecture
-## NSTechnologies / Team Strive | Engineering Model
-
 ---
-v
 ## Hardware Target
 - **MCU**: STM32F407VGTx (STM32F4 Discovery board)
 - **RTOS**: FreeRTOS
