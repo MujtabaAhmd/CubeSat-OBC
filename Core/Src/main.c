@@ -202,7 +202,7 @@ int main(void)
 	 printf("MAG X: %d, Y: %d, Z: %d | ACCEL X: %d, Y: %d, Z: %d | GYRO X: %d, Y: %d, Z: %d\r\n",
 	         x, y, z, ax, ay, az, gx, gy, gz);
 
-	 HAL_Delay(50);
+	 HAL_Delay(500);
   }
   /* USER CODE END 3 */
 }
