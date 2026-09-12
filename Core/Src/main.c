@@ -99,7 +99,11 @@ HAL_StatusTypeDef MPU6050_Init(void)
     uint8_t data[2];
     data[0] = MPU6050_REG_PWR_MGMT_1;
     data[1] = 0x00; /* clear SLEEP bit, use internal 8MHz oscillator */
-    return HAL_I2C_Master_Transmit(&hi2c1, MPU6050_ADDRESS << 1, data, 2, HAL_MAX_DELAY);
+    uint8_t cfg[2];
+    cfg[0] = 0x1A;
+    cfg[1] = 0x05;
+    HAL_I2C_Master_Transmit(&hi2c1, MPU6050_ADDRESS << 1, data, 2, HAL_MAX_DELAY);
+    return HAL_I2C_Master_Transmit(&hi2c1, MPU6050_ADDRESS << 1, cfg, 2, HAL_MAX_DELAY);
 }
 
 /* Reads raw accelerometer counts. Divide by the sensitivity for your configured
@@ -198,7 +202,7 @@ int main(void)
 	 printf("MAG X: %d, Y: %d, Z: %d | ACCEL X: %d, Y: %d, Z: %d | GYRO X: %d, Y: %d, Z: %d\r\n",
 	         x, y, z, ax, ay, az, gx, gy, gz);
 
-	 HAL_Delay(1000);
+	 HAL_Delay(50);
   }
   /* USER CODE END 3 */
 }

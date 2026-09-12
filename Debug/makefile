@@ -34,34 +34,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := HMC_Sensor
+BUILD_ARTIFACT_NAME := Sensor
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-HMC_Sensor.elf \
+Sensor.elf \
 
 MAP_FILES += \
-HMC_Sensor.map \
+Sensor.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-HMC_Sensor.list \
+Sensor.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: HMC_Sensor.elf secondary-outputs
+main-build: Sensor.elf secondary-outputs
 
 # Tool invocations
-HMC_Sensor.elf HMC_Sensor.map: $(OBJS) $(USER_OBJS) C:\1_Mujtaba\3_Technology\Cube\ Sat\OBC\Testing\HMC_Sensor\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "HMC_Sensor.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\1_Mujtaba\3_Technology\Cube Sat\OBC\Testing\HMC_Sensor\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="HMC_Sensor.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Sensor.elf Sensor.map: $(OBJS) $(USER_OBJS) C:\1_Mujtaba\3_Technology\Cube\ Sat\OBC\Testing\Sensor\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Sensor.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\1_Mujtaba\3_Technology\Cube Sat\OBC\Testing\Sensor\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Sensor.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -70,14 +70,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-HMC_Sensor.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "HMC_Sensor.list"
+Sensor.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "Sensor.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) HMC_Sensor.elf HMC_Sensor.list HMC_Sensor.map default.size.stdout
+	-$(RM) Sensor.elf Sensor.list Sensor.map default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
