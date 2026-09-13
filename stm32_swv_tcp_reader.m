@@ -1,18 +1,16 @@
 function stm32_swv_tcp_reader()
 % STM32_SWV_TCP_READER
-% Reads MPU6050 (accel/gyro) + HMC5883L (mag) values printed over SWV/ITM
-% via printf, through an OpenOCD SWO-to-TCP bridge. Plots each sensor in
-% its own figure and writes all captured samples to a CSV file whenever
-% the script stops (Ctrl+C, error, or normal exit).
+% Reads MPU6050 accel/gyro values printed over SWV/ITM via printf,
+% through an OpenOCD SWO-to-TCP bridge. Plots each sensor in its own
+% figure and writes all captured samples to a CSV file whenever the
+% script stops (Stop button, Ctrl+C, error, or normal exit).
 %
-% Expects firmware printf lines of the form:
-%   MAG X: %d, Y: %d, Z: %d | ACCEL X: %d, Y: %d, Z: %d | GYRO X: %d, Y: %d, Z: %d\r\n
+% Expects firmware printf lines of the form (plain integers, no decimal
+% point -- values are milli-g / milli-deg-per-second):
+%   ACCEL X: %ld, Y: %ld, Z: %ld | GYRO X: %ld, Y: %ld, Z: %ld\r\n
 %
 % Assumes printf is retargeted to ITM_SendChar on the ITM stimulus port
-% given by targetStimPort below (commonly port 0). If your retarget
-% implementation uses a different port, or packs multiple characters per
-% ITM write, this should still work since the decoder appends raw
-% payload bytes in packet order rather than interpreting them as numbers.
+% given by targetStimPort below (commonly port 0).
 %
 % NOTE: exact OpenOCD "tpiu config" syntax is version-dependent; verify
 % against your OpenOCD version (run "tpiu config" with no args in the
@@ -25,12 +23,12 @@ port = 3443;
 targetStimPort = 0;     % ITM stimulus port printf/ITM_SendChar writes to
 readTimeout = 5;        % seconds, for the initial TCP connection
 rollingWindow = 300;    % samples shown on the live plots (CSV keeps everything)
-csvFilename = fullfile(pwd, 'imu_mag_log.csv');
+csvFilename = fullfile(pwd, 'imu_log.csv');
 autosaveEvery = 100;    % write the CSV every N samples as a safety net
+milliToUnit = 1000;     % firmware sends milli-g / milli-dps as integers
 
 %% --- Data storage (grows for the whole session; saved to CSV at the end) ---
 sampleIdx = 0;
-magX = []; magY = []; magZ = [];
 accX = []; accY = []; accZ = [];
 gyroX = []; gyroY = []; gyroZ = [];
 timestamps = [];
@@ -51,9 +49,11 @@ end
 cleanupObj = onCleanup(@saveCSV); %#ok<NASGU>
 
 %% --- Line parsing setup ---
+% Plain integers only -- no decimal points. If your firmware later goes
+% back to printing decimals, this pattern needs "-?\d+\.?\d*" instead,
+% but only once the firmware side is actually printing valid numbers.
 lineBuffer = '';
-pattern = ['MAG X:\s*(-?\d+),\s*Y:\s*(-?\d+),\s*Z:\s*(-?\d+)\s*\|\s*' ...
-           'ACCEL X:\s*(-?\d+),\s*Y:\s*(-?\d+),\s*Z:\s*(-?\d+)\s*\|\s*' ...
+pattern = ['ACCEL X:\s*(-?\d+),\s*Y:\s*(-?\d+),\s*Z:\s*(-?\d+)\s*\|\s*' ...
            'GYRO X:\s*(-?\d+),\s*Y:\s*(-?\d+),\s*Z:\s*(-?\d+)'];
 
 %% --- Figures: one per sensor ---
@@ -61,7 +61,7 @@ stopRequested = false;
 
 figAccel = figure('Name', 'Accelerometer');
 axAccel = axes(figAccel); hold(axAccel, 'on'); grid(axAccel, 'on');
-title(axAccel, 'MPU6050 Accelerometer'); xlabel(axAccel, 'Sample'); ylabel(axAccel, 'Raw value');
+title(axAccel, 'MPU6050 Accelerometer'); xlabel(axAccel, 'Sample'); ylabel(axAccel, 'g');
 hAx = plot(axAccel, nan, nan, '-', 'DisplayName', 'X');
 hAy = plot(axAccel, nan, nan, '-', 'DisplayName', 'Y');
 hAz = plot(axAccel, nan, nan, '-', 'DisplayName', 'Z');
@@ -76,19 +76,11 @@ uicontrol(figAccel, 'Style', 'pushbutton', 'String', 'Stop & Save', ...
 
 figGyro = figure('Name', 'Gyroscope');
 axGyro = axes(figGyro); hold(axGyro, 'on'); grid(axGyro, 'on');
-title(axGyro, 'MPU6050 Gyroscope'); xlabel(axGyro, 'Sample'); ylabel(axGyro, 'Raw value');
+title(axGyro, 'MPU6050 Gyroscope'); xlabel(axGyro, 'Sample'); ylabel(axGyro, 'deg/s');
 hGx = plot(axGyro, nan, nan, '-', 'DisplayName', 'X');
 hGy = plot(axGyro, nan, nan, '-', 'DisplayName', 'Y');
 hGz = plot(axGyro, nan, nan, '-', 'DisplayName', 'Z');
 legend(axGyro);
-
-figMag = figure('Name', 'Magnetometer');
-axMag = axes(figMag); hold(axMag, 'on'); grid(axMag, 'on');
-title(axMag, 'HMC5883L Magnetometer'); xlabel(axMag, 'Sample'); ylabel(axMag, 'Raw value');
-hMx = plot(axMag, nan, nan, '-', 'DisplayName', 'X');
-hMy = plot(axMag, nan, nan, '-', 'DisplayName', 'Y');
-hMz = plot(axMag, nan, nan, '-', 'DisplayName', 'Z');
-legend(axMag);
 
 %% --- Live read + decode + parse loop ---
 buffer = uint8.empty;
@@ -114,6 +106,7 @@ while ~stopRequested
             rawLine = lineBuffer(1:nlPos-1);
             lineBuffer = lineBuffer(nlPos+1:end);
             rawLine = strrep(rawLine, sprintf('\r'), '');
+            disp(rawLine)
             processLine(rawLine);
         end
     end
@@ -136,9 +129,12 @@ end
         sampleIdx = sampleIdx + 1;
         timestamps(end+1) = sampleIdx; %#ok<AGROW>
 
-        magX(end+1) = vals(1); magY(end+1) = vals(2); magZ(end+1) = vals(3); %#ok<AGROW>
-        accX(end+1) = vals(4); accY(end+1) = vals(5); accZ(end+1) = vals(6); %#ok<AGROW>
-        gyroX(end+1) = vals(7); gyroY(end+1) = vals(8); gyroZ(end+1) = vals(9); %#ok<AGROW>
+        accX(end+1) = vals(1) / milliToUnit; %#ok<AGROW>
+        accY(end+1) = vals(2) / milliToUnit; %#ok<AGROW>
+        accZ(end+1) = vals(3) / milliToUnit; %#ok<AGROW>
+        gyroX(end+1) = vals(4) / milliToUnit; %#ok<AGROW>
+        gyroY(end+1) = vals(5) / milliToUnit; %#ok<AGROW>
+        gyroZ(end+1) = vals(6) / milliToUnit; %#ok<AGROW>
 
         updatePlots();
 
@@ -164,10 +160,6 @@ end
         set(hGy, 'XData', timestamps(idx), 'YData', gyroY(idx));
         set(hGz, 'XData', timestamps(idx), 'YData', gyroZ(idx));
 
-        set(hMx, 'XData', timestamps(idx), 'YData', magX(idx));
-        set(hMy, 'XData', timestamps(idx), 'YData', magY(idx));
-        set(hMz, 'XData', timestamps(idx), 'YData', magZ(idx));
-
         drawnow limitrate;
     end
 
@@ -176,17 +168,16 @@ end
             disp('No samples captured -- nothing to save.');
             return;
         end
-        T = table(timestamps', magX', magY', magZ', accX', accY', accZ', gyroX', gyroY', gyroZ', ...
-            'VariableNames', {'Sample','MagX','MagY','MagZ','AccelX','AccelY','AccelZ','GyroX','GyroY','GyroZ'});
+        T = table(timestamps', accX', accY', accZ', gyroX', gyroY', gyroZ', ...
+            'VariableNames', {'Sample','AccelX_g','AccelY_g','AccelZ_g','GyroX_dps','GyroY_dps','GyroZ_dps'});
         writetable(T, csvFilename);
         fprintf('Saved %d samples to %s\n', numel(timestamps), csvFilename);
     end
 
     function [chars, remaining] = decodeSWIT(buf, wantedPort)
         % Same SWIT packet framing as before (see ARM CoreSight ITM
-        % architecture), but this returns raw payload bytes as
-        % characters in packet order, rather than interpreting them as
-        % a single numeric value, since this stream carries ASCII text.
+        % architecture), returning raw payload bytes as characters in
+        % packet order since this stream carries ASCII text.
         chars = uint8.empty;
         i = 1;
         n2 = numel(buf);

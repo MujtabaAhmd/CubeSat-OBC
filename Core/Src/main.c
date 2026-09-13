@@ -43,6 +43,36 @@
 #define MPU6050_REG_PWR_MGMT_1  0x6B
 #define MPU6050_REG_ACCEL_DATA  0x3B
 #define MPU6050_REG_GYRO_DATA   0x43
+
+#define ACCEL_SENS_LSB_PER_G   16384.0f   /* +/-2g default */
+#define GYRO_SENS_LSB_PER_DPS  131.0f     /* +/-250 dps default */
+
+typedef enum { AXIS_X = 0, AXIS_Y = 1, AXIS_Z = 2 } Axis_t;
+#define GRAVITY_AXIS   AXIS_X   /* change if your "up" axis is different */
+#define GRAVITY_SIGN   (+1)     /* +1 if that axis reads positive at rest, -1 if negative */
+
+#define CALIBRATION_SAMPLES   200   /* averaged while the board must be held still and level */
+
+#define LPF_ALPHA   0.3f
+
+typedef struct {
+    int16_t ax, ay, az;
+    int16_t gx, gy, gz;
+	} ImuRaw_t;
+
+typedef struct {
+    float ax, ay, az;   /* in g */
+    float gx, gy, gz;   /* in deg/s */
+	} ImuScaled_t;
+
+typedef struct {
+    /* raw-count biases measured at calibration time */
+    float accelBias[3];
+    float gyroBias[3];
+    /* filter state (in physical units, post-calibration) */
+    ImuScaled_t filtered;
+    uint8_t initialized;
+	} ImuCal_t;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -65,7 +95,9 @@ int _write(int file, char *ptr, int len)
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+ImuCal_t imuCal;
+ImuRaw_t raw;
+ImuScaled_t scaled;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -128,6 +160,88 @@ void MPU6050_ReadGyro(int16_t* gx, int16_t* gy, int16_t* gz)
     *gy = (((int16_t)buffer[2]) << 8) | buffer[3];
     *gz = (((int16_t)buffer[4]) << 8) | buffer[5];
 }
+
+static void ReadAccelGyroRaw(ImuRaw_t *raw)
+{
+    /* Example shape of what this should do:*/
+     uint8_t buf_acc[8], buf_gyro[8];
+     HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDRESS << 1, MPU6050_REG_ACCEL_DATA, I2C_MEMADD_SIZE_8BIT, buf_acc, 6, HAL_MAX_DELAY);
+     HAL_I2C_Mem_Read(&hi2c1, MPU6050_ADDRESS << 1, MPU6050_REG_GYRO_DATA, I2C_MEMADD_SIZE_8BIT, buf_gyro, 6, HAL_MAX_DELAY);
+     raw->ax = (int16_t)((buf_acc[0] << 8) | buf_acc[1]);
+     raw->ay = (int16_t)((buf_acc[2] << 8) | buf_acc[3]);
+     raw->az = (int16_t)((buf_acc[4] << 8) | buf_acc[5]);
+     //buf[6],buf[7] = temperature, skip
+     raw->gx = (int16_t)((buf_gyro[0]  << 8) | buf_gyro[1]);
+     raw->gy = (int16_t)((buf_gyro[2] << 8) | buf_gyro[3]);
+     raw->gz = (int16_t)((buf_gyro[4] << 8) | buf_gyro[5]);
+     (void)raw;
+}
+
+void IMU_Calibrate(ImuCal_t *cal)
+{
+    float sumA[3] = {0.0f, 0.0f, 0.0f};
+    float sumG[3] = {0.0f, 0.0f, 0.0f};
+    ImuRaw_t raw;
+    int i;
+
+    for (i = 0; i < CALIBRATION_SAMPLES; i++) {
+        ReadAccelGyroRaw(&raw);
+
+        sumA[0] += (float)raw.ax;
+        sumA[1] += (float)raw.ay;
+        sumA[2] += (float)raw.az;
+
+        sumG[0] += (float)raw.gx;
+        sumG[1] += (float)raw.gy;
+        sumG[2] += (float)raw.gz;
+
+        HAL_Delay(2); /* small spacing between samples; tune to your ODR */
+    }
+
+    for (i = 0; i < 3; i++) {
+        float avgA = sumA[i] / (float)CALIBRATION_SAMPLES;
+        float avgG = sumG[i] / (float)CALIBRATION_SAMPLES;
+
+        float expectedA = (i == (int)GRAVITY_AXIS)
+                             ? (GRAVITY_SIGN * ACCEL_SENS_LSB_PER_G)
+                             : 0.0f;
+
+        cal->accelBias[i] = avgA - expectedA;
+        cal->gyroBias[i]  = avgG;   /* expected value at rest is 0 */
+    }
+
+    cal->filtered.ax = 0.0f; cal->filtered.ay = 0.0f; cal->filtered.az = 0.0f;
+    cal->filtered.gx = 0.0f; cal->filtered.gy = 0.0f; cal->filtered.gz = 0.0f;
+    cal->initialized = 0;
+}
+
+void IMU_ApplyCalibrationAndFilter(ImuCal_t *cal, const ImuRaw_t *raw, ImuScaled_t *out)
+{
+    float ax = ((float)raw->ax - cal->accelBias[0]) / ACCEL_SENS_LSB_PER_G;
+    float ay = ((float)raw->ay - cal->accelBias[1]) / ACCEL_SENS_LSB_PER_G;
+    float az = ((float)raw->az - cal->accelBias[2]) / ACCEL_SENS_LSB_PER_G;
+
+    float gx = ((float)raw->gx - cal->gyroBias[0]) / GYRO_SENS_LSB_PER_DPS;
+    float gy = ((float)raw->gy - cal->gyroBias[1]) / GYRO_SENS_LSB_PER_DPS;
+    float gz = ((float)raw->gz - cal->gyroBias[2]) / GYRO_SENS_LSB_PER_DPS;
+
+    if (!cal->initialized) {
+        /* first sample: seed the filter instead of smoothing from 0 */
+        cal->filtered.ax = ax; cal->filtered.ay = ay; cal->filtered.az = az;
+        cal->filtered.gx = gx; cal->filtered.gy = gy; cal->filtered.gz = gz;
+        cal->initialized = 1;
+    } else {
+        cal->filtered.ax += LPF_ALPHA * (ax - cal->filtered.ax);
+        cal->filtered.ay += LPF_ALPHA * (ay - cal->filtered.ay);
+        cal->filtered.az += LPF_ALPHA * (az - cal->filtered.az);
+
+        cal->filtered.gx += LPF_ALPHA * (gx - cal->filtered.gx);
+        cal->filtered.gy += LPF_ALPHA * (gy - cal->filtered.gy);
+        cal->filtered.gz += LPF_ALPHA * (gz - cal->filtered.gz);
+    }
+
+    *out = cal->filtered;
+}
 /* USER CODE END 0 */
 
 /**
@@ -137,13 +251,6 @@ void MPU6050_ReadGyro(int16_t* gx, int16_t* gy, int16_t* gz)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	uint8_t DataX[2];
-	uint16_t Xaxis = 0;
-	uint8_t DataY[2];
-	uint16_t Yaxis = 0;
-	uint8_t DataZ[2];
-	uint16_t Zaxis = 0;
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -152,7 +259,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -166,15 +272,9 @@ int main(void)
   MX_GPIO_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  uint16_t address;
-  char uartBuf[10];
   HAL_StatusTypeDef status;
 
-  Xaxis = 0;
-  Yaxis = 0;
-  Zaxis = 0;
-
-  HMC5883L_Init();
+  //HMC5883L_Init();
 
   status = MPU6050_Init();
   if (status != HAL_OK)
@@ -183,9 +283,7 @@ int main(void)
       Error_Handler();
   }
 
-  int16_t x, y, z;
-  int16_t ax, ay, az;
-  int16_t gx, gy, gz;
+  IMU_Calibrate(&imuCal);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -195,14 +293,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	 HMC5883L_ReadData(&x, &y, &z);
-	 MPU6050_ReadAccel(&ax, &ay, &az);
-	 MPU6050_ReadGyro(&gx, &gy, &gz);
+	 ReadAccelGyroRaw(&raw);
+	 IMU_ApplyCalibrationAndFilter(&imuCal, &raw, &scaled);
 
-	 printf("MAG X: %d, Y: %d, Z: %d | ACCEL X: %d, Y: %d, Z: %d | GYRO X: %d, Y: %d, Z: %d\r\n",
-	         x, y, z, ax, ay, az, gx, gy, gz);
+	 printf("ACCEL X: %ld, Y: %ld, Z: %ld | GYRO X: %ld, Y: %ld, Z: %ld\r\n",
+	       (long)(scaled.ax * 1000.0f), (long)(scaled.ay * 1000.0f), (long)(scaled.az * 1000.0f),
+	       (long)(scaled.gx * 1000.0f), (long)(scaled.gy * 1000.0f), (long)(scaled.gz * 1000.0f));
 
 	 HAL_Delay(500);
+
   }
   /* USER CODE END 3 */
 }
